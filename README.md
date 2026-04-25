@@ -44,16 +44,22 @@ LibraryManagementSystem/
 ## 📸 Screenshots
 
 ### 📊 Library Dashboard
+> Displays all books with category and issue status.
+
 ![Dashboard](screenshots/dashboard.png)
 
 ---
 
-### ➕ Add Book Dialog
+### ➕ Add Book
+> Simple dialog to add new books into the system.
+
 ![Add Book](screenshots/add-book.png)
 
 ---
 
-### ✅ Book Added Successfully
+### ✅ Book Added
+> Newly added book reflected instantly in the system.
+
 ![Book Added](screenshots/book-added.png)
 
 ## ⚡ Quick Start
