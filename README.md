@@ -1,3 +1,6 @@
+<img width="1885" height="958" alt="dashboard" src="https://github.com/user-attachments/assets/00bbd368-b612-4036-a194-953a05583e5b" />
+<img width="1347" height="681" alt="bookadded" src="https://github.com/user-attachments/assets/c4d11d36-729a-4511-a253-d559dcd75b1e" />
+<img width="1352" height="677" alt="addbook" src="https://github.com/user-attachments/assets/65eda8f6-3c1e-46f7-a587-c813ce734bc4" />
 # 📚 Library Management System
 
 A full-featured **Java Swing + MySQL desktop application** for managing books, students, and library operations with role-based access.
