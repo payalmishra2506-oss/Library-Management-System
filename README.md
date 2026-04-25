@@ -41,6 +41,21 @@ LibraryManagementSystem/
 └── README.md
 ```
 
+## 📸 Screenshots
+
+### 📊 Library Dashboard
+![Dashboard](screenshots/dashboard.png)
+
+---
+
+### ➕ Add Book Dialog
+![Add Book](screenshots/add-book.png)
+
+---
+
+### ✅ Book Added Successfully
+![Book Added](screenshots/book-added.png)
+
 ## ⚡ Quick Start
 
 ### 1. Setup MySQL Database
