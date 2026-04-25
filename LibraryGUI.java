@@ -1,255 +1,407 @@
 import java.awt.*;
-import java.sql.ResultSet;
+import java.sql.*;
 import javax.swing.*;
-import javax.swing.table.DefaultTableModel;
+import javax.swing.table.*;
 
 public class LibraryGUI extends JFrame {
 
-    Library library = new Library();
-
-    DefaultTableModel model;
     JTable table;
+    DefaultTableModel model;
+    String role;
 
-    CardLayout cardLayout;
-    JPanel mainPanel;
+    JLabel totalLabel, issuedLabel;
 
-    public LibraryGUI() {
+    public LibraryGUI(String role) {
+
+        this.role = role;
 
         setTitle("Library Management System");
-        setSize(1000, 600);
+        setSize(1100, 550);
         setLocationRelativeTo(null);
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setDefaultCloseOperation(EXIT_ON_CLOSE);
         setLayout(new BorderLayout());
 
-        // ================= SIDEBAR =================
-        JPanel sideBar = new JPanel(new GridLayout(5, 1, 10, 10));
-        sideBar.setBackground(new Color(30, 100, 30));
+        // ===== STATS =====
+        JPanel stats = new JPanel();
+        stats.setBackground(new Color(230, 240, 255));
 
-        JButton dashboardBtn = new JButton("Dashboard");
-        JButton booksBtn = new JButton("Books");
-        JButton refreshBtn = new JButton("Refresh");
+        totalLabel = new JLabel("Total: 0");
+        issuedLabel = new JLabel("Issued: 0");
 
-        sideBar.add(dashboardBtn);
-        sideBar.add(booksBtn);
-        sideBar.add(refreshBtn);
+        stats.add(totalLabel);
+        stats.add(issuedLabel);
 
-        add(sideBar, BorderLayout.WEST);
+        add(stats, BorderLayout.NORTH);
 
-        // ================= MAIN =================
-        cardLayout = new CardLayout();
-        mainPanel = new JPanel(cardLayout);
+        // ===== TOP PANEL =====
+        JPanel top = new JPanel(new FlowLayout());
 
-        mainPanel.add(createDashboard(), "Dashboard");
-        mainPanel.add(createBooksPanel(), "Books");
+        JButton addBtn = createButton("Add");
+        JButton updateBtn = createButton("Update");
+        JButton deleteBtn = createButton("Delete");
+        JButton issueBtn = createButton("Issue");
+        JButton returnBtn = createButton("Return");
+        JButton refreshBtn = createButton("Refresh");
+        JButton studentsBtn = createButton("Students");
 
-        add(mainPanel, BorderLayout.CENTER);
+        JTextField searchField = new JTextField(12);
+        JButton clearBtn = createButton("Clear");
 
-        dashboardBtn.addActionListener(e -> cardLayout.show(mainPanel, "Dashboard"));
-        booksBtn.addActionListener(e -> cardLayout.show(mainPanel, "Books"));
-
-        refreshBtn.addActionListener(e -> {
-            refreshTable();
-            JOptionPane.showMessageDialog(this, "Data Refreshed");
-        });
-
-        setVisible(true);
-    }
-
-    // ================= DASHBOARD =================
-    private JPanel createDashboard() {
-
-        JPanel panel = new JPanel(new GridLayout(1, 3, 20, 20));
-        panel.setBorder(BorderFactory.createEmptyBorder(40, 40, 40, 40));
-
-        panel.add(createCard("Total Books", library.countBooks()));
-        panel.add(createCard("Issued Books", library.countIssued()));
-        panel.add(createCard("Students", library.countStudents()));
-
-        return panel;
-    }
-
-    private JPanel createCard(String title, int value) {
-
-        JPanel card = new JPanel(new BorderLayout());
-        card.setBackground(new Color(144, 238, 144));
-
-        JLabel titleLabel = new JLabel(title, JLabel.CENTER);
-        JLabel valueLabel = new JLabel(String.valueOf(value), JLabel.CENTER);
-
-        titleLabel.setFont(new Font("Arial", Font.BOLD, 16));
-        valueLabel.setFont(new Font("Arial", Font.BOLD, 28));
-
-        card.add(titleLabel, BorderLayout.NORTH);
-        card.add(valueLabel, BorderLayout.CENTER);
-
-        return card;
-    }
-
-    // ================= BOOK PANEL =================
-    private JPanel createBooksPanel() {
-
-        JPanel panel = new JPanel(new BorderLayout());
-
-        JPanel top = new JPanel();
-
-        JButton addBtn = new JButton("Add");
-        JButton updateBtn = new JButton("Update");
-        JButton deleteBtn = new JButton("Delete");
-        JButton issueBtn = new JButton("Issue Book");
-        JButton returnBtn = new JButton("Return Book");
-
-        JTextField searchField = new JTextField(15);
-        JButton searchBtn = new JButton("Search");
+        JComboBox<String> filterBox = new JComboBox<>(new String[]{"All", "Issued", "Available"});
 
         top.add(addBtn);
         top.add(updateBtn);
         top.add(deleteBtn);
         top.add(issueBtn);
         top.add(returnBtn);
+        top.add(refreshBtn);
+        top.add(studentsBtn);
+        top.add(new JLabel("Search:"));
         top.add(searchField);
-        top.add(searchBtn);
+        top.add(clearBtn);
+        top.add(filterBox);
 
-        panel.add(top, BorderLayout.NORTH);
+        add(top, BorderLayout.SOUTH);
 
+        // ===== TABLE =====
         model = new DefaultTableModel(
-                new String[]{"ID", "Name", "Author", "Issued"}, 0
+                new String[]{"ID", "Name", "Author", "Category", "Issued"},
+                0
         );
 
         table = new JTable(model);
-        table.setSelectionBackground(Color.GREEN);
-        panel.add(new JScrollPane(table), BorderLayout.CENTER);
+
+        table.setRowHeight(28);
+
+        table.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
+            public Component getTableCellRendererComponent(JTable table, Object value,
+                                                           boolean isSelected, boolean hasFocus,
+                                                           int row, int col) {
+
+                Component c = super.getTableCellRendererComponent(
+                        table, value, isSelected, hasFocus, row, col);
+
+                if (!isSelected) {
+                    c.setBackground(row % 2 == 0 ? Color.WHITE : new Color(240, 240, 255));
+                }
+
+                return c;
+            }
+        });
+
+        add(new JScrollPane(table), BorderLayout.CENTER);
 
         refreshTable();
 
-        // ================= ADD =================
-        addBtn.addActionListener(e -> {
-            String idStr = JOptionPane.showInputDialog("Enter ID");
-            if (idStr == null) return;
+        // ===== ACTIONS =====
+        addBtn.addActionListener(e -> showAddBookForm());
+        updateBtn.addActionListener(e -> updateBook());
+        deleteBtn.addActionListener(e -> deleteBook());
+        issueBtn.addActionListener(e -> issueBook());
+        returnBtn.addActionListener(e -> returnBook());
+        refreshBtn.addActionListener(e -> refreshTable());
+        studentsBtn.addActionListener(e -> showStudents());
 
-            String name = JOptionPane.showInputDialog("Enter Name");
-            if (name == null || name.trim().isEmpty()) return;
-
-            String author = JOptionPane.showInputDialog("Enter Author");
-            if (author == null || author.trim().isEmpty()) return;
-
-            try {
-                int id = Integer.parseInt(idStr);
-                library.addBook(id, name, author);
-                refreshTable();
-            } catch (Exception ex) {
-                JOptionPane.showMessageDialog(this, "Invalid Input");
+        // SEARCH
+        searchField.addKeyListener(new java.awt.event.KeyAdapter() {
+            public void keyReleased(java.awt.event.KeyEvent evt) {
+                searchBooks(searchField.getText());
             }
         });
 
-        // ================= UPDATE =================
-        updateBtn.addActionListener(e -> {
-            int row = table.getSelectedRow();
-            if (row == -1) {
-                JOptionPane.showMessageDialog(this, "Select a row first");
-                return;
-            }
-
-            int id = (int) model.getValueAt(row, 0);
-
-            String currentName = (String) model.getValueAt(row, 1);
-            String currentAuthor = (String) model.getValueAt(row, 2);
-
-            String name = JOptionPane.showInputDialog("New Name", currentName);
-            String author = JOptionPane.showInputDialog("New Author", currentAuthor);
-
-            if (name == null || author == null) return;
-
-            library.updateBook(id, name, author);
+        // CLEAR
+        clearBtn.addActionListener(e -> {
+            searchField.setText("");
             refreshTable();
         });
 
-        // ================= DELETE =================
-        deleteBtn.addActionListener(e -> {
-            int row = table.getSelectedRow();
-            if (row == -1) return;
+        // FILTER
+        filterBox.addActionListener(e -> filterBooks((String) filterBox.getSelectedItem()));
 
-            int confirm = JOptionPane.showConfirmDialog(this, "Are you sure?");
-            if (confirm != JOptionPane.YES_OPTION) return;
+        // 🔒 ROLE RESTRICTION
+        if (role.equalsIgnoreCase("STUDENT")) {
+            addBtn.setEnabled(false);
+            updateBtn.setEnabled(false);
+            deleteBtn.setEnabled(false);
+            issueBtn.setEnabled(false);
+            returnBtn.setEnabled(false);
+            studentsBtn.setVisible(false);
+        }
 
-            int id = (int) model.getValueAt(row, 0);
-            library.deleteBook(id);
-            refreshTable();
-        });
-
-        // ================= ISSUE =================
-        issueBtn.addActionListener(e -> {
-            int row = table.getSelectedRow();
-            if (row == -1) return;
-
-            int bookId = (int) model.getValueAt(row, 0);
-
-            String studentIdStr = JOptionPane.showInputDialog("Enter Student ID");
-            if (studentIdStr == null) return;
-
-            try {
-                int studentId = Integer.parseInt(studentIdStr);
-                library.issueBook(bookId, studentId);
-                refreshTable();
-            } catch (Exception ex) {
-                JOptionPane.showMessageDialog(this, "Invalid Input");
-            }
-        });
-
-        // ================= RETURN =================
-        returnBtn.addActionListener(e -> {
-            int row = table.getSelectedRow();
-            if (row == -1) return;
-
-            int bookId = (int) model.getValueAt(row, 0);
-
-            library.returnBook(bookId);
-            refreshTable();
-        });
-
-        // ================= SEARCH =================
-        searchBtn.addActionListener(e -> {
-            try {
-                model.setRowCount(0);
-                ResultSet rs = library.searchBooks(searchField.getText());
-
-                while (rs.next()) {
-                    model.addRow(new Object[]{
-                            rs.getInt("id"),
-                            rs.getString("name"),
-                            rs.getString("author"),
-                            rs.getBoolean("issued") ? "Yes" : "No"
-                    });
-                }
-            } catch (Exception ex) {
-                ex.printStackTrace();
-            }
-        });
-
-        return panel;
+        setVisible(true);
     }
 
-    // ================= REFRESH =================
-    private void refreshTable() {
+    // ===== BUTTON STYLE =====
+    private JButton createButton(String text) {
+        JButton btn = new JButton(text);
+        btn.setBackground(new Color(70, 130, 180));
+        btn.setForeground(Color.WHITE);
+        return btn;
+    }
+
+    // ===== ADD FORM =====
+    private void showAddBookForm() {
+
+        JTextField idField = new JTextField();
+        JTextField nameField = new JTextField();
+        JTextField authorField = new JTextField();
+        JTextField categoryField = new JTextField();
+
+        JPanel panel = new JPanel(new GridLayout(4, 2));
+
+        panel.add(new JLabel("ID:"));
+        panel.add(idField);
+        panel.add(new JLabel("Name:"));
+        panel.add(nameField);
+        panel.add(new JLabel("Author:"));
+        panel.add(authorField);
+        panel.add(new JLabel("Category:"));
+        panel.add(categoryField);
+
+        int result = JOptionPane.showConfirmDialog(this, panel, "Add Book",
+                JOptionPane.OK_CANCEL_OPTION);
+
+        if (result == JOptionPane.OK_OPTION) {
+            try {
+                int id = Integer.parseInt(idField.getText());
+
+                String sql = "INSERT INTO books VALUES (?, ?, ?, ?, false, NULL, NULL)";
+
+                try (Connection con = DB.getConnection();
+                     PreparedStatement ps = con.prepareStatement(sql)) {
+
+                    ps.setInt(1, id);
+                    ps.setString(2, nameField.getText());
+                    ps.setString(3, authorField.getText());
+                    ps.setString(4, categoryField.getText());
+                    ps.executeUpdate();
+                }
+
+                refreshTable();
+
+            } catch (Exception e) {
+                JOptionPane.showMessageDialog(this, e.getMessage());
+            }
+        }
+    }
+
+    // ===== UPDATE =====
+    private void updateBook() {
+        int row = table.getSelectedRow();
+        if (row == -1) return;
+
         try {
+            int id = (int) model.getValueAt(row, 0);
+            String name = JOptionPane.showInputDialog("New Name:");
+            String author = JOptionPane.showInputDialog("New Author:");
+
+            String sql = "UPDATE books SET name=?, author=? WHERE id=?";
+
+            try (Connection con = DB.getConnection();
+                 PreparedStatement ps = con.prepareStatement(sql)) {
+
+                ps.setString(1, name);
+                ps.setString(2, author);
+                ps.setInt(3, id);
+                ps.executeUpdate();
+            }
+
+            refreshTable();
+
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(this, e.getMessage());
+        }
+    }
+
+    // ===== DELETE =====
+    private void deleteBook() {
+        int row = table.getSelectedRow();
+        if (row == -1) return;
+
+        try {
+            int id = (int) model.getValueAt(row, 0);
+
+            String sql = "DELETE FROM books WHERE id=?";
+
+            try (Connection con = DB.getConnection();
+                 PreparedStatement ps = con.prepareStatement(sql)) {
+
+                ps.setInt(1, id);
+                ps.executeUpdate();
+            }
+
+            refreshTable();
+
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(this, e.getMessage());
+        }
+    }
+
+    // ===== ISSUE =====
+    private void issueBook() {
+        int row = table.getSelectedRow();
+        if (row == -1) return;
+
+        try {
+            int id = (int) model.getValueAt(row, 0);
+            String roll = JOptionPane.showInputDialog("Enter Student Roll No");
+
+            String sql = "UPDATE books SET issued=true, student_id=?, issue_date=CURDATE() WHERE id=?";
+
+            try (Connection con = DB.getConnection();
+                 PreparedStatement ps = con.prepareStatement(sql)) {
+
+                ps.setString(1, roll);
+                ps.setInt(2, id);
+                ps.executeUpdate();
+            }
+
+            refreshTable();
+
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(this, e.getMessage());
+        }
+    }
+
+    // ===== RETURN =====
+    private void returnBook() {
+        int row = table.getSelectedRow();
+        if (row == -1) return;
+
+        try {
+            int id = (int) model.getValueAt(row, 0);
+
+            String sql = "UPDATE books SET issued=false, student_id=NULL, issue_date=NULL WHERE id=?";
+
+            try (Connection con = DB.getConnection();
+                 PreparedStatement ps = con.prepareStatement(sql)) {
+
+                ps.setInt(1, id);
+                ps.executeUpdate();
+            }
+
+            refreshTable();
+
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(this, e.getMessage());
+        }
+    }
+
+    // ===== REFRESH =====
+    private void refreshTable() {
+        try (Connection con = DB.getConnection();
+             ResultSet rs = con.createStatement().executeQuery("SELECT * FROM books")) {
+
             model.setRowCount(0);
 
-            ResultSet rs = library.getAllBooks();
+            int total = 0, issued = 0;
+
+            while (rs.next()) {
+                boolean isIssued = rs.getBoolean("issued");
+
+                if (isIssued) issued++;
+                total++;
+
+                model.addRow(new Object[]{
+                        rs.getInt("id"),
+                        rs.getString("name"),
+                        rs.getString("author"),
+                        rs.getString("category"),
+                        isIssued ? "Yes" : "No"
+                });
+            }
+
+            totalLabel.setText("Total: " + total);
+            issuedLabel.setText("Issued: " + issued);
+
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(this, e.getMessage());
+        }
+    }
+
+    // ===== SEARCH =====
+    private void searchBooks(String keyword) {
+        try (Connection con = DB.getConnection();
+             PreparedStatement ps = con.prepareStatement(
+                     "SELECT * FROM books WHERE name LIKE ? OR author LIKE ? OR category LIKE ?")) {
+
+            String key = "%" + keyword + "%";
+
+            ps.setString(1, key);
+            ps.setString(2, key);
+            ps.setString(3, key);
+
+            ResultSet rs = ps.executeQuery();
+
+            model.setRowCount(0);
 
             while (rs.next()) {
                 model.addRow(new Object[]{
                         rs.getInt("id"),
                         rs.getString("name"),
                         rs.getString("author"),
+                        rs.getString("category"),
                         rs.getBoolean("issued") ? "Yes" : "No"
                 });
             }
 
         } catch (Exception e) {
-            e.printStackTrace();
+            JOptionPane.showMessageDialog(this, e.getMessage());
         }
     }
 
-    public static void main(String[] args) {
-        new LibraryGUI();
+    // ===== FILTER =====
+    private void filterBooks(String type) {
+        String query = "SELECT * FROM books";
+
+        if (type.equals("Issued")) query += " WHERE issued=true";
+        if (type.equals("Available")) query += " WHERE issued=false";
+
+        try (Connection con = DB.getConnection();
+             ResultSet rs = con.createStatement().executeQuery(query)) {
+
+            model.setRowCount(0);
+
+            while (rs.next()) {
+                model.addRow(new Object[]{
+                        rs.getInt("id"),
+                        rs.getString("name"),
+                        rs.getString("author"),
+                        rs.getString("category"),
+                        rs.getBoolean("issued") ? "Yes" : "No"
+                });
+            }
+
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(this, e.getMessage());
+        }
+    }
+
+    // ===== STUDENTS =====
+    private void showStudents() {
+
+        DefaultTableModel studentModel = new DefaultTableModel(
+                new String[]{"Username", "Roll No"},
+                0
+        );
+
+        JTable studentTable = new JTable(studentModel);
+
+        try (Connection con = DB.getConnection();
+             ResultSet rs = con.createStatement().executeQuery(
+                     "SELECT username, roll_no FROM users WHERE role='STUDENT'")) {
+
+            while (rs.next()) {
+                studentModel.addRow(new Object[]{
+                        rs.getString("username"),
+                        rs.getString("roll_no")
+                });
+            }
+
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(this, e.getMessage());
+        }
+
+        JOptionPane.showMessageDialog(this, new JScrollPane(studentTable), "Students", JOptionPane.PLAIN_MESSAGE);
     }
 }

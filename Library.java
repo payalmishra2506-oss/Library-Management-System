@@ -1,270 +1,140 @@
-import java.awt.*;
-import java.sql.ResultSet;
-import javax.swing.*;
-import javax.swing.table.DefaultTableModel;
+import java.sql.*;
 
-public class LibraryGUI extends JFrame {
+public class Library {
 
-    Library library = new Library();
-
-    DefaultTableModel model;
-    JTable table;
-
-    CardLayout cardLayout;
-    JPanel mainPanel;
-
-    public LibraryGUI() {
-
-        setTitle("Library Management System");
-        setSize(1000, 600);
-        setLocationRelativeTo(null);
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setLayout(new BorderLayout());
-
-        // ================= SIDEBAR =================
-        JPanel sideBar = new JPanel(new GridLayout(5, 1, 10, 10));
-        sideBar.setBackground(new Color(30, 100, 30));
-
-        JButton dashboardBtn = new JButton("Dashboard");
-        JButton booksBtn = new JButton("Books");
-        JButton studentsBtn = new JButton("Students");
-        JButton refreshBtn = new JButton("Refresh");
-
-        sideBar.add(dashboardBtn);
-        sideBar.add(booksBtn);
-        sideBar.add(studentsBtn);
-        sideBar.add(refreshBtn);
-
-        add(sideBar, BorderLayout.WEST);
-
-        // ================= MAIN PANEL =================
-        cardLayout = new CardLayout();
-        mainPanel = new JPanel(cardLayout);
-
-        mainPanel.add(createDashboard(), "Dashboard");
-        mainPanel.add(createBooksPanel(), "Books");
-        mainPanel.add(createStudentsPanel(), "Students");
-
-        add(mainPanel, BorderLayout.CENTER);
-
-        dashboardBtn.addActionListener(e -> cardLayout.show(mainPanel, "Dashboard"));
-        booksBtn.addActionListener(e -> cardLayout.show(mainPanel, "Books"));
-        studentsBtn.addActionListener(e -> cardLayout.show(mainPanel, "Students"));
-
-        refreshBtn.addActionListener(e -> {
-            refreshTable();
-            JOptionPane.showMessageDialog(this, "Data Refreshed");
-        });
-
-        setVisible(true);
-    }
-
-    // ================= DASHBOARD =================
-    private JPanel createDashboard() {
-
-        JPanel panel = new JPanel(new GridLayout(1, 3, 20, 20));
-        panel.setBorder(BorderFactory.createEmptyBorder(40, 40, 40, 40));
-
-        panel.add(createCard("Total Books", library.countBooks()));
-        panel.add(createCard("Issued Books", library.countIssued()));
-        panel.add(createCard("Students", library.countStudents()));
-
-        return panel;
-    }
-
-    private JPanel createCard(String title, int value) {
-
-        JPanel card = new JPanel(new BorderLayout());
-        card.setBackground(new Color(144, 238, 144));
-
-        JLabel titleLabel = new JLabel(title, JLabel.CENTER);
-        JLabel valueLabel = new JLabel(String.valueOf(value), JLabel.CENTER);
-
-        titleLabel.setFont(new Font("Arial", Font.BOLD, 16));
-        valueLabel.setFont(new Font("Arial", Font.BOLD, 28));
-
-        card.add(titleLabel, BorderLayout.NORTH);
-        card.add(valueLabel, BorderLayout.CENTER);
-
-        return card;
-    }
-
-    // ================= BOOKS PANEL =================
-    private JPanel createBooksPanel() {
-
-        JPanel panel = new JPanel(new BorderLayout());
-
-        JPanel top = new JPanel();
-
-        JButton addBtn = new JButton("Add");
-        JButton updateBtn = new JButton("Update");
-        JButton deleteBtn = new JButton("Delete");
-
-        JTextField searchField = new JTextField(15);
-        searchField.setToolTipText("Search by name or author");
-
-        JButton searchBtn = new JButton("Search");
-
-        top.add(addBtn);
-        top.add(updateBtn);
-        top.add(deleteBtn);
-        top.add(searchField);
-        top.add(searchBtn);
-
-        panel.add(top, BorderLayout.NORTH);
-
-        model = new DefaultTableModel(
-                new String[]{"ID", "Name", "Author", "Issued"}, 0
-        );
-
-        table = new JTable(model);
-        table.setSelectionBackground(Color.GREEN);
-        table.setFillsViewportHeight(true);
-
-        panel.add(new JScrollPane(table), BorderLayout.CENTER);
-
-        refreshTable();
-
-        // ================= ADD =================
-        addBtn.addActionListener(e -> {
-            String idStr = JOptionPane.showInputDialog("Enter ID");
-            if (idStr == null) return;
-
-            String name = JOptionPane.showInputDialog("Enter Name");
-            if (name == null || name.trim().isEmpty()) return;
-
-            String author = JOptionPane.showInputDialog("Enter Author");
-            if (author == null || author.trim().isEmpty()) return;
-
-            try {
-                int id = Integer.parseInt(idStr);
-                library.addBook(id, name, author);
-                refreshTable();
-            } catch (Exception ex) {
-                JOptionPane.showMessageDialog(this, "Invalid Input");
-            }
-        });
-
-        // ================= UPDATE =================
-        updateBtn.addActionListener(e -> {
-            int row = table.getSelectedRow();
-            if (row == -1) {
-                JOptionPane.showMessageDialog(this, "Select a row first");
-                return;
-            }
-
-            int id = (int) model.getValueAt(row, 0);
-
-            String currentName = (String) model.getValueAt(row, 1);
-            String currentAuthor = (String) model.getValueAt(row, 2);
-
-            String name = JOptionPane.showInputDialog("New Name", currentName);
-            if (name == null || name.trim().isEmpty()) return;
-
-            String author = JOptionPane.showInputDialog("New Author", currentAuthor);
-            if (author == null || author.trim().isEmpty()) return;
-
-            library.updateBook(id, name, author);
-            refreshTable();
-        });
-
-        // ================= DELETE =================
-        deleteBtn.addActionListener(e -> {
-            int row = table.getSelectedRow();
-            if (row == -1) {
-                JOptionPane.showMessageDialog(this, "Select a row first");
-                return;
-            }
-
-            int confirm = JOptionPane.showConfirmDialog(this, "Are you sure?");
-            if (confirm != JOptionPane.YES_OPTION) return;
-
-            int id = (int) model.getValueAt(row, 0);
-
-            library.deleteBook(id);
-            refreshTable();
-        });
-
-        // ================= SEARCH =================
-        searchBtn.addActionListener(e -> {
-            try {
-                model.setRowCount(0);
-                ResultSet rs = library.searchBooks(searchField.getText());
-
-                while (rs.next()) {
-                    model.addRow(new Object[]{
-                            rs.getInt("id"),
-                            rs.getString("name"),
-                            rs.getString("author"),
-                            rs.getBoolean("issued") ? "Yes" : "No"
-                    });
-                }
-            } catch (Exception ex) {
-                ex.printStackTrace();
-            }
-        });
-
-        return panel;
-    }
-
-    // ================= STUDENTS PANEL =================
-    private JPanel createStudentsPanel() {
-
-        JPanel panel = new JPanel(new BorderLayout());
-
-        DefaultTableModel studentModel = new DefaultTableModel(
-                new String[]{"ID", "Name", "Course"}, 0
-        );
-
-        JTable studentTable = new JTable(studentModel);
-
-        panel.add(new JScrollPane(studentTable), BorderLayout.CENTER);
-
-        refreshStudents(studentModel);
-
-        return panel;
-    }
-
-    // ================= REFRESH BOOK TABLE =================
-    private void refreshTable() {
+    // ADD BOOK
+    public void addBook(int id, String name, String author) {
         try {
-            model.setRowCount(0);
+            Connection con = DBConnection.getConnection();
 
-            ResultSet rs = library.getAllBooks();
+            String query = "INSERT INTO books (id, name, author, issued) VALUES (?, ?, ?, false)";
+            PreparedStatement ps = con.prepareStatement(query);
 
-            while (rs.next()) {
-                model.addRow(new Object[]{
-                        rs.getInt("id"),
-                        rs.getString("name"),
-                        rs.getString("author"),
-                        rs.getBoolean("issued") ? "Yes" : "No"
-                });
-            }
+            ps.setInt(1, id);
+            ps.setString(2, name);
+            ps.setString(3, author);
+
+            ps.executeUpdate();
+            System.out.println("Book Added");
 
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
-    // ================= REFRESH STUDENTS =================
-    private void refreshStudents(DefaultTableModel model) {
+    // UPDATE BOOK
+    public void updateBook(int id, String name, String author) {
         try {
-            ResultSet rs = library.getAllStudents();
+            Connection con = DBConnection.getConnection();
 
-            while (rs.next()) {
-                model.addRow(new Object[]{
-                        rs.getInt("id"),
-                        rs.getString("name"),
-                        rs.getString("course")
-                });
-            }
+            String query = "UPDATE books SET name=?, author=? WHERE id=?";
+            PreparedStatement ps = con.prepareStatement(query);
+
+            ps.setString(1, name);
+            ps.setString(2, author);
+            ps.setInt(3, id);
+
+            ps.executeUpdate();
+            System.out.println("Book Updated");
+
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
-    // ================= MAIN =================
-    public static void main(String[] args) {
-        new LibraryGUI();
+    // DELETE BOOK
+    public void deleteBook(int id) {
+        try {
+            Connection con = DBConnection.getConnection();
+
+            String query = "DELETE FROM books WHERE id=?";
+            PreparedStatement ps = con.prepareStatement(query);
+
+            ps.setInt(1, id);
+            ps.executeUpdate();
+            System.out.println("Book Deleted");
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    // ISSUE BOOK
+    public void issueBook(int bookId, int studentId) {
+        try {
+            Connection con = DBConnection.getConnection();
+
+            String query = "UPDATE books SET issued=true WHERE id=?";
+            PreparedStatement ps = con.prepareStatement(query);
+
+            ps.setInt(1, bookId);
+            ps.executeUpdate();
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    // RETURN BOOK
+    public void returnBook(int bookId) {
+        try {
+            Connection con = DBConnection.getConnection();
+
+            String query = "UPDATE books SET issued=false WHERE id=?";
+            PreparedStatement ps = con.prepareStatement(query);
+
+            ps.setInt(1, bookId);
+            ps.executeUpdate();
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    // GET ALL BOOKS
+    public ResultSet getAllBooks() throws Exception {
+        Connection con = DBConnection.getConnection();
+        Statement st = con.createStatement();
+        return st.executeQuery("SELECT * FROM books");
+    }
+
+    // SEARCH BOOKS
+    public ResultSet searchBooks(String keyword) throws Exception {
+        Connection con = DBConnection.getConnection();
+
+        String query = "SELECT * FROM books WHERE name LIKE ? OR author LIKE ?";
+        PreparedStatement ps = con.prepareStatement(query);
+
+        ps.setString(1, "%" + keyword + "%");
+        ps.setString(2, "%" + keyword + "%");
+
+        return ps.executeQuery();
+    }
+
+    // COUNT METHODS
+    public int countBooks() {
+        return countQuery("SELECT COUNT(*) FROM books");
+    }
+
+    public int countIssued() {
+        return countQuery("SELECT COUNT(*) FROM books WHERE issued=true");
+    }
+
+    public int countStudents() {
+        return 0; // optional
+    }
+
+    private int countQuery(String query) {
+        try {
+            Connection con = DBConnection.getConnection();
+            Statement st = con.createStatement();
+            ResultSet rs = st.executeQuery(query);
+
+            if (rs.next()) return rs.getInt(1);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return 0;
     }
 }
